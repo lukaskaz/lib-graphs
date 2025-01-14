@@ -1,5 +1,3 @@
 build/
-conf/
-models
 tests/build/
 .vscode/
