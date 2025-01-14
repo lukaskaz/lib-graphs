@@ -1,0 +1,31 @@
+#pragma once
+
+#include <chrono>
+#include <cstdint>
+#include <string>
+#include <tuple>
+#include <vector>
+
+using namespace std::chrono_literals;
+
+namespace graphs
+{
+
+using dataparamsall_t =
+    std::vector<std::tuple<std::string, std::string, uint32_t>>;
+using graphparamsall_t =
+    std::tuple<std::chrono::milliseconds, uint32_t, dataparamsall_t>;
+using dataparamsshort_t = std::vector<std::tuple<std::string, std::string>>;
+using graphparamsshort_t =
+    std::tuple<std::chrono::milliseconds, uint32_t, dataparamsshort_t>;
+using graphsize_t = std::pair<uint32_t, uint32_t>;
+
+class GraphIf
+{
+  public:
+    virtual ~GraphIf() = default;
+    virtual void start() = 0;
+    virtual void stop() = 0;
+};
+
+} // namespace graphs
