@@ -21,7 +21,7 @@ jobs:
         mkdir build && cd build && cmake .. && make
       
   execution:
-    name: Report
+    name: Execution
     needs: [build]
     runs-on: ubuntu-latest
     environment: production
@@ -36,7 +36,7 @@ jobs:
       run: ./build/examples/dygraph/dygraph
 
   test:
-    name: Unit tests
+    name: Tests
     runs-on: ubuntu-latest
     environment: test
 
