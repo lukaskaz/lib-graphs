@@ -11,6 +11,7 @@ class Graph : public GraphIf
     ~Graph();
     void start() override;
     void stop() override;
+    void add(const std::string&) override;
 
   private:
     friend class graphs::GraphFactory;

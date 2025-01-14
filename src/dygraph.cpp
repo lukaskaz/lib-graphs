@@ -242,6 +242,7 @@ struct Graph::Handler
     {
         init(labels);
     }
+
     Handler(const std::vector<std::string>& labels, const graphsize_t& size,
             const graphparamsshort_t& params) :
         server{[]() {
@@ -254,6 +255,7 @@ struct Graph::Handler
     {
         init(labels);
     }
+
     ~Handler()
     {
         stop();
@@ -270,6 +272,11 @@ struct Graph::Handler
     void stop()
     {
         server.close();
+    }
+
+    void add(const std::string& entry)
+    {
+        data.add(entry);
     }
 
   private:
@@ -352,6 +359,11 @@ void Graph::start()
 void Graph::stop()
 {
     handler->stop();
+}
+
+void Graph::add(const std::string& entry)
+{
+    handler->add(entry);
 }
 
 } // namespace graphs::dygraph

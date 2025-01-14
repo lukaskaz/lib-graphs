@@ -26,6 +26,7 @@ class GraphIf
     virtual ~GraphIf() = default;
     virtual void start() = 0;
     virtual void stop() = 0;
+    virtual void add(const std::string&) = 0;
 };
 
 } // namespace graphs
