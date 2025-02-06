@@ -1,4 +1,4 @@
-#include "graphs/interfaces/dygraph.hpp"
+#include "graphs/interfaces/dygraph/rangesamples/graph.hpp"
 
 #include "webserver/helpers.hpp"
 #include "webserver/interfaces/http.hpp"
@@ -8,8 +8,9 @@
 #include <future>
 #include <iostream> //torem
 #include <ranges>
+#include <variant>
 
-namespace graphs::dygraph
+namespace graphs::dygraph::rangesamples
 {
 
 class Htmlcode
@@ -18,7 +19,8 @@ class Htmlcode
     Htmlcode(const std::vector<std::string>& labels, const graphsize_t& size,
              std::chrono::milliseconds timems, uint32_t range,
              const std::vector<std::string>& datapath) :
-        refreshms{timems}, rangesize{range}, datapath{datapath}
+        refreshms{timems},
+        rangesize{range}, datapath{datapath}
     {
         if (this->datapath.empty())
         {
@@ -230,28 +232,30 @@ class Htmlcode
 struct Graph::Handler
 {
   public:
-    Handler(const std::vector<std::string>& labels, const graphsize_t& size,
-            const graphparamsall_t& params) :
-        server{[]() {
+    Handler(const configshort_t& config) :
+        labels{std::get<std::vector<std::string>>(config)},
+        size{std::get<graphsize_t>(config)},
+        params{std::get<graphparamsshort_t>(config)}, server{[]() {
             port++;
             return port;
         }()},
-        data{std::get<dataparamsall_t>(params)},
-        html{labels, size, std::get<std::chrono::milliseconds>(params),
-             std::get<uint32_t>(params), data.getnames()}
+        data{std::get<2>(std::get<graphparamsshort_t>(params))},
+        html{labels, size, std::get<0>(std::get<graphparamsshort_t>(params)),
+             std::get<1>(std::get<graphparamsshort_t>(params)), data.getnames()}
     {
         init(labels);
     }
 
-    Handler(const std::vector<std::string>& labels, const graphsize_t& size,
-            const graphparamsshort_t& params) :
-        server{[]() {
+    Handler(const configall_t& config) :
+        labels{std::get<std::vector<std::string>>(config)},
+        size{std::get<graphsize_t>(config)},
+        params{std::get<graphparamsall_t>(config)}, server{[]() {
             port++;
             return port;
         }()},
-        data{std::get<dataparamsshort_t>(params)},
-        html{labels, size, std::get<std::chrono::milliseconds>(params),
-             std::get<uint32_t>(params), data.getnames()}
+        data{std::get<2>(std::get<graphparamsall_t>(params))},
+        html{labels, size, std::get<0>(std::get<graphparamsall_t>(params)),
+             std::get<1>(std::get<graphparamsall_t>(params)), data.getnames()}
     {
         init(labels);
     }
@@ -284,8 +288,11 @@ struct Graph::Handler
         std::vector<std::tuple<std::string, std::string, std::string>>;
     static constexpr std::string path{"graph"};
     static uint16_t port;
+    const std::vector<std::string> labels;
+    const graphsize_t size;
+    const std::variant<graphparamsshort_t, graphparamsall_t> params;
     http::Server server;
-    CircularCollection data;
+    helpers::CircularCollection data;
     Htmlcode html;
     const files_t files = {
         {"../resources/", "dygraph.js", "text/javascript"},
@@ -341,13 +348,11 @@ struct Graph::Handler
 };
 uint16_t Graph::Handler::port{9000};
 
-Graph::Graph(const std::vector<std::string>& labels, const graphsize_t& size,
-             const graphparamsall_t& params) :
-    handler{std::make_unique<Handler>(labels, size, params)}
+Graph::Graph(const configshort_t& config) :
+    handler{std::make_unique<Handler>(config)}
 {}
-Graph::Graph(const std::vector<std::string>& labels, const graphsize_t& size,
-             const graphparamsshort_t& params) :
-    handler{std::make_unique<Handler>(labels, size, params)}
+Graph::Graph(const configall_t& config) :
+    handler{std::make_unique<Handler>(config)}
 {}
 Graph::~Graph() = default;
 
@@ -366,4 +371,4 @@ void Graph::add(const std::string& entry)
     handler->add(entry);
 }
 
-} // namespace graphs::dygraph
+} // namespace graphs::dygraph::rangesamples
