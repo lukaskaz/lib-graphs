@@ -33,7 +33,7 @@ jobs:
       run: |
         mkdir build && cd build && cmake -DADD_EXAMPLES=ON .. && make
     - name: Executing examples/dygraph program
-      run: ./examples/dygraph/rangesamples/prog
+      run: ./build/examples/dygraph/rangesamples/prog
 
   test:
     name: Tests
