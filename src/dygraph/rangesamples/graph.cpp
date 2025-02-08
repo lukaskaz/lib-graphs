@@ -165,7 +165,7 @@ class Htmlcode
             Dygraph.prototype.parseCSVnative_ = (function(_super) {\n\
                 return function() {\n\
                     if (arguments[0]) {\n\
-                        samplesNum = arguments[0].split('\\n').length;\n\
+                        samplesNum = arguments[0].split('\\n').length - 2;\n\
                         setDeferredCall(refreshGraphRange);\n\
                     }\n\
                     return _super.apply(this, arguments);\n\
@@ -235,10 +235,7 @@ struct Graph::Handler
     Handler(const configshort_t& config) :
         labels{std::get<std::vector<std::string>>(config)},
         size{std::get<graphsize_t>(config)},
-        params{std::get<graphparamsshort_t>(config)}, server{[]() {
-            port++;
-            return port;
-        }()},
+        params{std::get<graphparamsshort_t>(config)}, server{getserver()},
         data{std::get<2>(std::get<graphparamsshort_t>(params))},
         html{labels, size, std::get<0>(std::get<graphparamsshort_t>(params)),
              std::get<1>(std::get<graphparamsshort_t>(params)), data.getnames()}
@@ -249,10 +246,7 @@ struct Graph::Handler
     Handler(const configall_t& config) :
         labels{std::get<std::vector<std::string>>(config)},
         size{std::get<graphsize_t>(config)},
-        params{std::get<graphparamsall_t>(config)}, server{[]() {
-            port++;
-            return port;
-        }()},
+        params{std::get<graphparamsall_t>(config)}, server{getserver()},
         data{std::get<2>(std::get<graphparamsall_t>(params))},
         html{labels, size, std::get<0>(std::get<graphparamsall_t>(params)),
              std::get<1>(std::get<graphparamsall_t>(params)), data.getnames()}
@@ -287,7 +281,7 @@ struct Graph::Handler
     using files_t =
         std::vector<std::tuple<std::string, std::string, std::string>>;
     static constexpr std::string path{"graph"};
-    static uint16_t port;
+    uint16_t port{9000};
     const std::vector<std::string> labels;
     const graphsize_t size;
     const std::variant<graphparamsshort_t, graphparamsall_t> params;
@@ -306,9 +300,40 @@ struct Graph::Handler
         std::string name{"Unnamed"};
         if (!labels.empty())
             name = labels.at(0);
-        auto ip = http::getIPAddress("eth0");
-        startmsg = "Graph [" + name + "] available under address: " + ip + ":" +
-                   std::to_string(port) + "/" + path;
+        const auto [iface, ipaddr] = getipaddr();
+        startmsg = "Graph [" + name + "] available under address(" + iface +
+                   "): " + ipaddr + ":" + std::to_string(port) + "/" + path;
+    }
+
+    http::Server getserver()
+    {
+        while (port < std::numeric_limits<std::uint16_t>::max())
+        {
+            try
+            {
+                return http::Server(port);
+            }
+            catch (...)
+            {
+                port++;
+            }
+        }
+        throw std::runtime_error("No available port for new graph");
+    }
+
+    std::pair<std::string, std::string> getipaddr()
+    {
+        static const std::vector<std::string> ifaces{"eth0", "eth1", "enp0s0",
+                                                     "enp1s0", "enp2s0"};
+        std::string ipaddress;
+        for (const auto& iface : ifaces)
+        {
+            if (auto ipaddr = http::getIPAddress(iface); !ipaddr.empty())
+            {
+                return {iface, ipaddr};
+            }
+        }
+        throw std::runtime_error("Cannot find host ip address");
     }
 
     void sendhtmlcode()
@@ -346,14 +371,20 @@ struct Graph::Handler
         });
     }
 };
-uint16_t Graph::Handler::port{9000};
 
-Graph::Graph(const configshort_t& config) :
-    handler{std::make_unique<Handler>(config)}
-{}
-Graph::Graph(const configall_t& config) :
-    handler{std::make_unique<Handler>(config)}
-{}
+Graph::Graph(const config_t& config)
+{
+    handler = std::visit(
+        [](const auto& config) -> decltype(Graph::handler) {
+            if constexpr (!std::is_same<const std::monostate&,
+                                        decltype(config)>())
+            {
+                return std::make_unique<Graph::Handler>(config);
+            }
+            throw std::runtime_error("Graph config not supported");
+        },
+        config);
+}
 Graph::~Graph() = default;
 
 void Graph::start()

@@ -3,6 +3,7 @@
 #include "graphs/factory.hpp"
 
 #include <tuple>
+#include <variant>
 
 namespace graphs::dygraph::rangesamples
 {
@@ -18,6 +19,8 @@ using configshort_t =
 using configall_t =
     std::tuple<std::vector<std::string>, graphsize_t, graphparamsall_t>;
 
+using config_t = std::variant<configall_t, configshort_t>;
+
 class Graph : public GraphIf
 {
   public:
@@ -28,8 +31,7 @@ class Graph : public GraphIf
 
   private:
     friend class graphs::GraphFactory;
-    Graph(const configshort_t&);
-    Graph(const configall_t&);
+    Graph(const config_t&);
 
     struct Handler;
     std::unique_ptr<Handler> handler;
