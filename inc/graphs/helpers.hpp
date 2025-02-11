@@ -6,10 +6,20 @@
 #include <string>
 #include <vector>
 
-namespace graphs
+namespace graphs::helpers
 {
 
-std::string gettimestamp();
+class TimeMonitor
+{
+  public:
+    TimeMonitor();
+    uint32_t getseconds() const;
+    uint32_t getmiliseconds() const;
+    std::string gettimestamp() const;
+
+  private:
+    std::chrono::steady_clock::time_point start;
+};
 
 class CircularData
 {
@@ -44,4 +54,4 @@ class CircularCollection
     std::vector<CircularData> elems;
 };
 
-} // namespace graphs
+} // namespace graphs::helpers

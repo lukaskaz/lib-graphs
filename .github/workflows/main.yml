@@ -32,8 +32,10 @@ jobs:
     - name: Preparing library
       run: |
         mkdir build && cd build && cmake -DADD_EXAMPLES=ON .. && make
-    - name: Executing examples/dygraph program
-      run: ./build/examples/dygraph/dygraph
+    - name: Executing examples/dygraph programs
+      run: |
+        ./build/examples/dygraph/rangesamples/prog
+        ./build/examples/dygraph/rangetime/prog
 
   test:
     name: Tests

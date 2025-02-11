@@ -1,4 +1,4 @@
-#include "graphs/interfaces/dygraph.hpp"
+#include "graphs/interfaces/dygraph/rangetime/graph.hpp"
 
 #include "webserver/helpers.hpp"
 #include "webserver/interfaces/http.hpp"
@@ -8,17 +8,20 @@
 #include <future>
 #include <iostream> //torem
 #include <ranges>
+#include <variant>
 
-namespace graphs::dygraph
+namespace graphs::dygraph::rangetime
 {
 
 class Htmlcode
 {
   public:
     Htmlcode(const std::vector<std::string>& labels, const graphsize_t& size,
-             std::chrono::milliseconds timems, uint32_t range,
+             std::chrono::milliseconds timems,
+             std::chrono::milliseconds rangems,
              const std::vector<std::string>& datapath) :
-        refreshms{timems}, rangesize{range}, datapath{datapath}
+        refreshms{timems / 2},
+        rangems{rangems}, datapath{datapath}
     {
         if (this->datapath.empty())
         {
@@ -50,8 +53,8 @@ class Htmlcode
 
   private:
     static constexpr uint32_t alllabels{3};
-    std::chrono::milliseconds refreshms{50};
-    uint32_t rangesize{50};
+    std::chrono::milliseconds refreshms{50ms};
+    std::chrono::milliseconds rangems{250ms};
     const std::vector<std::string> datapath;
     std::string title{"User data graph"};
     std::string xlabel{"x axis"};
@@ -65,7 +68,8 @@ class Htmlcode
 <html>\n\
   <head>\n\
     <meta charset=\"UTF-8\">\n\
-    <title>Data presentation</title>\n\
+    <title>Graph " + title +
+                    "</title>\n\
     <link rel=\"stylesheet\" type=\"text/css\" href=\"dygraph.css\" />\n\
     <script type=\"text/javascript\" src=\"dygraph.js\"></script>\n\
   </head>\n\
@@ -79,7 +83,8 @@ class Htmlcode
                         return code;
                     }(datapath) +
                     "\
-</body></html>\n",
+        <noscript><style>body { visibility: visible; }</style></noscript>\n\
+    </body></html>\n",
                 "text/html"};
     }
 
@@ -124,6 +129,7 @@ class Htmlcode
 				    legend: 'always',\n\
 				    labelsDiv: document.getElementById('legendall'),\n\
 				    labelsSeparateLines: true,\n\
+                    drawAxesAtZero: true,\n\
                     drawPoints: true,\n\
                     showRangeSelector: true,\n\
                     highlightCallback: function(e, x, pts, row) {\n\
@@ -140,14 +146,18 @@ class Htmlcode
 				    \"" +
                data + "\", {\n\
 				    title: '" +
-               title + " [samples: " + std::to_string(rangesize) + "]',\n\
+               title + " [time(ms): " + std::to_string(rangems.count()) +
+               "]',\n\
 				    xlabel: ' " +
                xlabel + "', \n\
 				    ylabel: '" +
                ylabel + "',\n\
+                    dateWindow: [0, " +
+               std::to_string(rangems.count()) + " ],\n\
 				    legend: 'always',\n\
 				    labelsDiv: document.getElementById('legendrange'),\n\
 				    labelsSeparateLines: true,\n\
+                    drawAxesAtZero: true,\n\
                     drawPoints: true,\n\
                     showRangeSelector: true,\n\
                     highlightCallback: function(e, x, pts, row) {\n\
@@ -160,11 +170,11 @@ class Htmlcode
                 }\n\
             );\n\
             \n\
-            Dygraph.prototype.parseCSVnative_ = (function(_super) {\n\
+            Dygraph.prototype.parseCSVall_ = (function(_super) {\n\
                 return function() {\n\
                     if (arguments[0]) {\n\
-                        samplesNum = arguments[0].split('\\n').length;\n\
-                        setDeferredCall(refreshGraphRange);\n\
+                        samplesNum = arguments[0].split('\\n').length - 2;\n\
+                        startAsyncCall(refreshGraphRange);\n\
                     }\n\
                     return _super.apply(this, arguments);\n\
                 };\n\
@@ -173,16 +183,7 @@ class Htmlcode
             Dygraph.prototype.parseCSVrange_ = (function(_super) {\n\
                 return function() {\n\
                     if (arguments[0]) {\n\
-                        var values = arguments[0].split('\\n');\n\
-                        var entriestokeep = " +
-               std::to_string(rangesize) + ";\
-                        var keepidx = values.length - entriestokeep;\n\
-                        if(keepidx < 0) keepidx = 0;\n\
-                        values = values.filter(function(_, i) {\n\
-                            return i == 0 || i >= keepidx;\n\
-                        });\n\
-                        arguments[0] = values.join([separator='\\n']);\n\
-                        setDeferredCall(refreshGraphAll);\n\
+                        startAsyncCall(refreshGraphAll);\n\
                     }\n\
                     return _super.apply(this, arguments);\n\
                 };\n\
@@ -194,7 +195,7 @@ class Htmlcode
             };\n\
             \n\
             refreshGraphAll = function() {\n\
-                Dygraph.prototype.parseCSV_ = Dygraph.prototype.parseCSVnative_;\n\
+                Dygraph.prototype.parseCSV_ = Dygraph.prototype.parseCSVall_;\n\
                 gall.updateOptions({\n\
                     'file': \"" +
                data + "\", \n\
@@ -209,16 +210,26 @@ class Htmlcode
             \n\
             refreshGraphRange = function() {\n\
                 Dygraph.prototype.parseCSV_ = Dygraph.prototype.parseCSVrange_;\n\
+                var extremes = grange.xAxisExtremes();\n\
+                var rangestart = grange.xAxisExtremes()[0];\n\
+                var rangeend = grange.xAxisExtremes()[1];\n\
+                if ((rangeend - rangestart) > " +
+               std::to_string(rangems.count()) + ") {\n\
+                    rangestart = rangeend - " +
+               std::to_string(rangems.count()) + ";\n\
+                }\n\
                 grange.updateOptions({\n\
-                'file': \"" +
-               data + "\"});\n\
+                    'file': \"" +
+               data + "\", \n\
+                    'dateWindow': [rangestart, rangeend]\n\
+                });\n\
                 if (onGraphGrange) {\n\
                     grange.mouseMove_(lastMousemoveEvt);\n\
                 }\n\
                 console.log(getTimeMs() + \": \" + \"refreshGraphRange\");\n\
             };\n\
             \n\
-            (setDeferredCall = function(call, time = " +
+            (startAsyncCall = function(call, time = " +
                std::to_string(refreshms.count()) + ") {\n\
                 setTimeout(call, time);\n\
             })(refreshGraphRange);\n\
@@ -230,28 +241,24 @@ class Htmlcode
 struct Graph::Handler
 {
   public:
-    Handler(const std::vector<std::string>& labels, const graphsize_t& size,
-            const graphparamsall_t& params) :
-        server{[]() {
-            port++;
-            return port;
-        }()},
-        data{std::get<dataparamsall_t>(params)},
-        html{labels, size, std::get<std::chrono::milliseconds>(params),
-             std::get<uint32_t>(params), data.getnames()}
+    Handler(const configshort_t& config) :
+        labels{std::get<std::vector<std::string>>(config)},
+        size{std::get<graphsize_t>(config)},
+        params{std::get<graphparamsshort_t>(config)}, server{getserver()},
+        data{std::get<2>(std::get<graphparamsshort_t>(params))},
+        html{labels, size, std::get<0>(std::get<graphparamsshort_t>(params)),
+             std::get<1>(std::get<graphparamsshort_t>(params)), data.getnames()}
     {
         init(labels);
     }
 
-    Handler(const std::vector<std::string>& labels, const graphsize_t& size,
-            const graphparamsshort_t& params) :
-        server{[]() {
-            port++;
-            return port;
-        }()},
-        data{std::get<dataparamsshort_t>(params)},
-        html{labels, size, std::get<std::chrono::milliseconds>(params),
-             std::get<uint32_t>(params), data.getnames()}
+    Handler(const configall_t& config) :
+        labels{std::get<std::vector<std::string>>(config)},
+        size{std::get<graphsize_t>(config)},
+        params{std::get<graphparamsall_t>(config)}, server{getserver()},
+        data{std::get<2>(std::get<graphparamsall_t>(params))},
+        html{labels, size, std::get<0>(std::get<graphparamsall_t>(params)),
+             std::get<1>(std::get<graphparamsall_t>(params)), data.getnames()}
     {
         init(labels);
     }
@@ -283,9 +290,12 @@ struct Graph::Handler
     using files_t =
         std::vector<std::tuple<std::string, std::string, std::string>>;
     static constexpr std::string path{"graph"};
-    static uint16_t port;
+    uint16_t port{9000};
+    const std::vector<std::string> labels;
+    const graphsize_t size;
+    const std::variant<graphparamsshort_t, graphparamsall_t> params;
     http::Server server;
-    CircularCollection data;
+    helpers::CircularCollection data;
     Htmlcode html;
     const files_t files = {
         {"../resources/", "dygraph.js", "text/javascript"},
@@ -299,9 +309,40 @@ struct Graph::Handler
         std::string name{"Unnamed"};
         if (!labels.empty())
             name = labels.at(0);
-        auto ip = http::getIPAddress("eth0");
-        startmsg = "Graph [" + name + "] available under address: " + ip + ":" +
-                   std::to_string(port) + "/" + path;
+        const auto [iface, ipaddr] = getipaddr();
+        startmsg = "Graph [" + name + "] available under address(" + iface +
+                   "): " + ipaddr + ":" + std::to_string(port) + "/" + path;
+    }
+
+    http::Server getserver()
+    {
+        while (port < std::numeric_limits<std::uint16_t>::max())
+        {
+            try
+            {
+                return http::Server(port);
+            }
+            catch (...)
+            {
+                port++;
+            }
+        }
+        throw std::runtime_error("No available port for new graph");
+    }
+
+    std::pair<std::string, std::string> getipaddr()
+    {
+        static const std::vector<std::string> ifaces{"eth0", "eth1", "enp0s0",
+                                                     "enp1s0", "enp2s0"};
+        std::string ipaddress;
+        for (const auto& iface : ifaces)
+        {
+            if (auto ipaddr = http::getIPAddress(iface); !ipaddr.empty())
+            {
+                return {iface, ipaddr};
+            }
+        }
+        throw std::runtime_error("Cannot find host ip address");
     }
 
     void sendhtmlcode()
@@ -317,17 +358,19 @@ struct Graph::Handler
     {
         std::ranges::for_each(files, [this](const auto& file) {
             const auto& [path, name, type] = file;
-            server.get("/" + name, [file = path + name, &type](auto, auto res) {
-                std::ifstream ifs(file);
-                if (!ifs.is_open())
-                {
-                    throw std::runtime_error("Cannot open " + file);
-                }
-                auto content = std::string(
-                    std::istreambuf_iterator<char>(ifs.rdbuf()), {});
-                res.headers.push_back("Content-Type: " + type);
-                res >> content;
-            });
+            const auto filepath = path + name;
+            std::ifstream ifs(filepath);
+            if (!ifs.is_open())
+            {
+                throw std::runtime_error("Cannot open " + filepath);
+            }
+            auto content =
+                std::string(std::istreambuf_iterator<char>(ifs.rdbuf()), {});
+            server.get("/" + name,
+                       [content = content, type, name](auto, auto res) {
+                           res.headers.push_back("Content-Type: " + type);
+                           res >> content;
+                       });
         });
 
         std::ranges::for_each(data.getelems(), [this](const auto& elem) {
@@ -339,16 +382,20 @@ struct Graph::Handler
         });
     }
 };
-uint16_t Graph::Handler::port{9000};
 
-Graph::Graph(const std::vector<std::string>& labels, const graphsize_t& size,
-             const graphparamsall_t& params) :
-    handler{std::make_unique<Handler>(labels, size, params)}
-{}
-Graph::Graph(const std::vector<std::string>& labels, const graphsize_t& size,
-             const graphparamsshort_t& params) :
-    handler{std::make_unique<Handler>(labels, size, params)}
-{}
+Graph::Graph(const config_t& config)
+{
+    handler = std::visit(
+        [](const auto& config) -> decltype(Graph::handler) {
+            if constexpr (!std::is_same<const std::monostate&,
+                                        decltype(config)>())
+            {
+                return std::make_unique<Graph::Handler>(config);
+            }
+            throw std::runtime_error("Graph config not supported");
+        },
+        config);
+}
 Graph::~Graph() = default;
 
 void Graph::start()
@@ -366,4 +413,4 @@ void Graph::add(const std::string& entry)
     handler->add(entry);
 }
 
-} // namespace graphs::dygraph
+} // namespace graphs::dygraph::rangetime

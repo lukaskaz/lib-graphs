@@ -1,0 +1,9 @@
+#:~/git/lib-graphs/build$ ./examples/dygraph/rangesamples/prog test
+[INFO] Graph [sine/cosine] available under address(enpXsX): 192.168.X.XX:9000/graph
+[INFO] Graph [asine/acosine] available under address(enpXsX): 192.168.X.XX:9001/graph
+^C
+#:~/git/lib-graphs/build$ ./examples/dygraph/rangetime/prog test
+[INFO] Graph [Sine/cosine] available under address(enpXsX): 192.168.X.XX:9000/graph
+[INFO] Graph [Asine/acosine] available under address(enpXsX): 192.168.X.XX:9001/graph
+^C
+
