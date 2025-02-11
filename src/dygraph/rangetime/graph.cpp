@@ -1,4 +1,4 @@
-#include "graphs/interfaces/dygraph/rangesamples/graph.hpp"
+#include "graphs/interfaces/dygraph/rangetime/graph.hpp"
 
 #include "webserver/helpers.hpp"
 #include "webserver/interfaces/http.hpp"
@@ -10,17 +10,18 @@
 #include <ranges>
 #include <variant>
 
-namespace graphs::dygraph::rangesamples
+namespace graphs::dygraph::rangetime
 {
 
 class Htmlcode
 {
   public:
     Htmlcode(const std::vector<std::string>& labels, const graphsize_t& size,
-             std::chrono::milliseconds timems, uint32_t range,
+             std::chrono::milliseconds timems,
+             std::chrono::milliseconds rangems,
              const std::vector<std::string>& datapath) :
         refreshms{timems / 2},
-        rangesize{range}, datapath{datapath}
+        rangems{rangems}, datapath{datapath}
     {
         if (this->datapath.empty())
         {
@@ -52,8 +53,8 @@ class Htmlcode
 
   private:
     static constexpr uint32_t alllabels{3};
-    std::chrono::milliseconds refreshms{50};
-    uint32_t rangesize{50};
+    std::chrono::milliseconds refreshms{50ms};
+    std::chrono::milliseconds rangems{250ms};
     const std::vector<std::string> datapath;
     std::string title{"User data graph"};
     std::string xlabel{"x axis"};
@@ -145,11 +146,14 @@ class Htmlcode
 				    \"" +
                data + "\", {\n\
 				    title: '" +
-               title + " [samples: " + std::to_string(rangesize) + "]',\n\
+               title + " [time(ms): " + std::to_string(rangems.count()) +
+               "]',\n\
 				    xlabel: ' " +
                xlabel + "', \n\
 				    ylabel: '" +
                ylabel + "',\n\
+                    dateWindow: [0, " +
+               std::to_string(rangems.count()) + " ],\n\
 				    legend: 'always',\n\
 				    labelsDiv: document.getElementById('legendrange'),\n\
 				    labelsSeparateLines: true,\n\
@@ -166,11 +170,11 @@ class Htmlcode
                 }\n\
             );\n\
             \n\
-            Dygraph.prototype.parseCSVnative_ = (function(_super) {\n\
+            Dygraph.prototype.parseCSVall_ = (function(_super) {\n\
                 return function() {\n\
                     if (arguments[0]) {\n\
                         samplesNum = arguments[0].split('\\n').length - 2;\n\
-                        setDeferredCall(refreshGraphRange);\n\
+                        startAsyncCall(refreshGraphRange);\n\
                     }\n\
                     return _super.apply(this, arguments);\n\
                 };\n\
@@ -179,17 +183,7 @@ class Htmlcode
             Dygraph.prototype.parseCSVrange_ = (function(_super) {\n\
                 return function() {\n\
                     if (arguments[0]) {\n\
-                        var values = arguments[0].split('\\n');\n\
-                        var entriestokeep = " +
-               std::to_string(rangesize) + ";\
-                        var emptylinesnum = 1;\n\
-                        var keepidx = values.length - entriestokeep - emptylinesnum;\n\
-                        if(keepidx < 0) keepidx = 0;\n\
-                        values = values.filter(function(_, i) {\n\
-                            return i == 0 || i >= keepidx;\n\
-                        });\n\
-                        arguments[0] = values.join([separator='\\n']);\n\
-                        setDeferredCall(refreshGraphAll);\n\
+                        startAsyncCall(refreshGraphAll);\n\
                     }\n\
                     return _super.apply(this, arguments);\n\
                 };\n\
@@ -201,7 +195,7 @@ class Htmlcode
             };\n\
             \n\
             refreshGraphAll = function() {\n\
-                Dygraph.prototype.parseCSV_ = Dygraph.prototype.parseCSVnative_;\n\
+                Dygraph.prototype.parseCSV_ = Dygraph.prototype.parseCSVall_;\n\
                 gall.updateOptions({\n\
                     'file': \"" +
                data + "\", \n\
@@ -216,16 +210,26 @@ class Htmlcode
             \n\
             refreshGraphRange = function() {\n\
                 Dygraph.prototype.parseCSV_ = Dygraph.prototype.parseCSVrange_;\n\
+                var extremes = grange.xAxisExtremes();\n\
+                var rangestart = grange.xAxisExtremes()[0];\n\
+                var rangeend = grange.xAxisExtremes()[1];\n\
+                if ((rangeend - rangestart) > " +
+               std::to_string(rangems.count()) + ") {\n\
+                    rangestart = rangeend - " +
+               std::to_string(rangems.count()) + ";\n\
+                }\n\
                 grange.updateOptions({\n\
-                'file': \"" +
-               data + "\"});\n\
+                    'file': \"" +
+               data + "\", \n\
+                    'dateWindow': [rangestart, rangeend]\n\
+                });\n\
                 if (onGraphGrange) {\n\
                     grange.mouseMove_(lastMousemoveEvt);\n\
                 }\n\
                 console.log(getTimeMs() + \": \" + \"refreshGraphRange\");\n\
             };\n\
             \n\
-            (setDeferredCall = function(call, time = " +
+            (startAsyncCall = function(call, time = " +
                std::to_string(refreshms.count()) + ") {\n\
                 setTimeout(call, time);\n\
             })(refreshGraphRange);\n\
@@ -294,8 +298,8 @@ struct Graph::Handler
     helpers::CircularCollection data;
     Htmlcode html;
     const files_t files = {
-        {"../resources/", "dygraph.css", "text/css"},
         {"../resources/", "dygraph.js", "text/javascript"},
+        {"../resources/", "dygraph.css", "text/css"},
         {"../resources/", "favicon.ico", "image/vnd.microsoft.icon"}};
     std::string startmsg;
     std::future<void> async;
@@ -407,4 +411,4 @@ void Graph::add(const std::string& entry)
     handler->add(entry);
 }
 
-} // namespace graphs::dygraph::rangesamples
+} // namespace graphs::dygraph::rangetime

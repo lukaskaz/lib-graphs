@@ -9,4 +9,5 @@ endif()
 
 if(ADD_EXAMPLES)
     add_subdirectory(dygraph/rangesamples)
+    add_subdirectory(dygraph/rangetime)
 endif()
