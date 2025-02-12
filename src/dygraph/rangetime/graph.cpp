@@ -17,11 +17,11 @@ class Htmlcode
 {
   public:
     Htmlcode(const std::vector<std::string>& labels, const graphsize_t& size,
-             std::chrono::milliseconds timems,
+             std::chrono::milliseconds timems, rangetype rangetype,
              std::chrono::milliseconds rangems,
              const std::vector<std::string>& datapath) :
         refreshms{timems / 2},
-        rangems{rangems}, datapath{datapath}
+        datapath{datapath}
     {
         if (this->datapath.empty())
         {
@@ -43,6 +43,25 @@ class Htmlcode
             this->size = size;
         }
 
+        switch (rangetype)
+        {
+            case rangetype::microseconds:
+                range = std::chrono::duration_cast<std::chrono::microseconds>(
+                            rangems)
+                            .count();
+                break;
+            case rangetype::milliseconds:
+                range = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            rangems)
+                            .count();
+                break;
+            case rangetype::seconds:
+                range =
+                    std::chrono::duration_cast<std::chrono::seconds>(rangems)
+                        .count();
+                break;
+        }
+
         htmlcode = genhtmlcode();
     }
 
@@ -54,7 +73,7 @@ class Htmlcode
   private:
     static constexpr uint32_t alllabels{3};
     std::chrono::milliseconds refreshms{50ms};
-    std::chrono::milliseconds rangems{250ms};
+    uint32_t range;
     const std::vector<std::string> datapath;
     std::string title{"User data graph"};
     std::string xlabel{"x axis"};
@@ -146,14 +165,13 @@ class Htmlcode
 				    \"" +
                data + "\", {\n\
 				    title: '" +
-               title + " [time(ms): " + std::to_string(rangems.count()) +
-               "]',\n\
+               title + " [time: " + std::to_string(range) + "]',\n\
 				    xlabel: ' " +
                xlabel + "', \n\
 				    ylabel: '" +
                ylabel + "',\n\
                     dateWindow: [0, " +
-               std::to_string(rangems.count()) + " ],\n\
+               std::to_string(range) + " ],\n\
 				    legend: 'always',\n\
 				    labelsDiv: document.getElementById('legendrange'),\n\
 				    labelsSeparateLines: true,\n\
@@ -214,9 +232,9 @@ class Htmlcode
                 var rangestart = grange.xAxisExtremes()[0];\n\
                 var rangeend = grange.xAxisExtremes()[1];\n\
                 if ((rangeend - rangestart) > " +
-               std::to_string(rangems.count()) + ") {\n\
+               std::to_string(range) + ") {\n\
                     rangestart = rangeend - " +
-               std::to_string(rangems.count()) + ";\n\
+               std::to_string(range) + ";\n\
                 }\n\
                 grange.updateOptions({\n\
                     'file': \"" +
@@ -245,9 +263,13 @@ struct Graph::Handler
         labels{std::get<std::vector<std::string>>(config)},
         size{std::get<graphsize_t>(config)},
         params{std::get<graphparamsshort_t>(config)}, server{getserver()},
-        data{std::get<2>(std::get<graphparamsshort_t>(params))},
-        html{labels, size, std::get<0>(std::get<graphparamsshort_t>(params)),
-             std::get<1>(std::get<graphparamsshort_t>(params)), data.getnames()}
+        data{std::get<3>(std::get<graphparamsshort_t>(params))},
+        html{labels,
+             size,
+             std::get<0>(std::get<graphparamsshort_t>(params)),
+             std::get<1>(std::get<graphparamsshort_t>(params)),
+             std::get<2>(std::get<graphparamsshort_t>(params)),
+             data.getnames()}
     {
         init(labels);
     }
@@ -256,9 +278,13 @@ struct Graph::Handler
         labels{std::get<std::vector<std::string>>(config)},
         size{std::get<graphsize_t>(config)},
         params{std::get<graphparamsall_t>(config)}, server{getserver()},
-        data{std::get<2>(std::get<graphparamsall_t>(params))},
-        html{labels, size, std::get<0>(std::get<graphparamsall_t>(params)),
-             std::get<1>(std::get<graphparamsall_t>(params)), data.getnames()}
+        data{std::get<3>(std::get<graphparamsall_t>(params))},
+        html{labels,
+             size,
+             std::get<0>(std::get<graphparamsall_t>(params)),
+             std::get<1>(std::get<graphparamsall_t>(params)),
+             std::get<2>(std::get<graphparamsall_t>(params)),
+             data.getnames()}
     {
         init(labels);
     }

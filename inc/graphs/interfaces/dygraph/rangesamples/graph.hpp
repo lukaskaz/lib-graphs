@@ -30,7 +30,7 @@ class Graph : public GraphIf
     void add(const std::string&) override;
 
   private:
-    friend class graphs::GraphFactory;
+    friend class graphs::Factory;
     Graph(const config_t&);
 
     struct Handler;

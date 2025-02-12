@@ -15,11 +15,11 @@ int main(int argc, char**)
         try
         {
             using namespace graphs::dygraph::rangesamples;
-            auto graphA = graphs::GraphFactory::create<Graph, configall_t>(
+            auto graphA = graphs::Factory::create<Graph, configall_t>(
                 {{"sine/cosine", "position [degree]", "sin/cos value [-1,1]"},
                  {1200, 400},
                  {100ms, 25, {{"dataa.csv", "pos,sin,cos", 1000}}}});
-            auto graphB = graphs::GraphFactory::create<Graph, configshort_t>(
+            auto graphB = graphs::Factory::create<Graph, configshort_t>(
                 {{
                      "asine/acosine",
                      "asin/acos value [-1,...]",

@@ -8,7 +8,7 @@
 namespace graphs
 {
 
-class GraphFactory
+class Factory
 {
   public:
     template <typename T, typename C>
