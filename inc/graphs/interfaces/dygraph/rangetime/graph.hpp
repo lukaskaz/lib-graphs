@@ -8,11 +8,18 @@
 namespace graphs::dygraph::rangetime
 {
 
-using graphparamsall_t = std::tuple<std::chrono::milliseconds,
+enum class rangetype
+{
+    microseconds,
+    milliseconds,
+    seconds
+};
+
+using graphparamsall_t = std::tuple<std::chrono::milliseconds, rangetype,
                                     std::chrono::milliseconds, dataparamsall_t>;
 
 using graphparamsshort_t =
-    std::tuple<std::chrono::milliseconds, std::chrono::milliseconds,
+    std::tuple<std::chrono::milliseconds, rangetype, std::chrono::milliseconds,
                dataparamsshort_t>;
 
 using configshort_t =
